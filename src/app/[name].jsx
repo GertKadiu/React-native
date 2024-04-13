@@ -1,18 +1,46 @@
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import exercises from "../../assets/data/exercises.json";
 import { Stack } from "expo-router";
 import { useState } from "react";
+import { gql } from "graphql-request";
+import { useQuery } from "@tanstack/react-query";
+import graphqlClient from '../graphqlClient';
 
-export default function exerciseDetailScreen() {
-  const params = useLocalSearchParams();
-  const [instructionsExpanded, setInstructionsExpanded] = useState(false);
+const exerciseQuery = gql`
+  query exercises($name: String) {
+    exercises(name: $name) {
+      name
+      muscle
+      instructions
+      equipment
+    }
+  }
+`;
 
-  const exercise = exercises.find((item) => item.name === params.name);
+export default function ExerciseDetailsScreen() {
+  const { name } = useLocalSearchParams();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['exercises', name],
+    queryFn: () => graphqlClient.request(exerciseQuery, { name }),
+  });
+
+  const [isInstructionExpanded, setIsInstructionExpanded] = useState(false);
+
+  if (isLoading) {
+    return <ActivityIndicator />;
+  }
+
+  if (error) {
+    return <Text>Failed to fetch data</Text>;
+  }
+
+  const exercise = data.exercises[0];
 
   if (!exercise) {
-    return <Text> Exercise not found!</Text>;
+    return <Text>Exercise not found</Text>;
   }
+
 
   return (
     <ScrollView contentContainerStyle={styles.contanier}>
@@ -27,15 +55,15 @@ export default function exerciseDetailScreen() {
       <View style={styles.panel}>
         <Text
           style={styles.instructions}
-          numberOfLines={instructionsExpanded ? 0 : 3}
+          numberOfLines={isInstructionExpanded ? 0 : 3}
         >
           {exercise.instructions}
         </Text>
         <Text
-          onPress={() => setInstructionsExpanded(!instructionsExpanded)}
+          onPress={() => setIsInstructionExpanded(!isInstructionExpanded)}
           style={styles.seeMore}
         >
-          {instructionsExpanded ? "See less" : "See more"}
+          {isInstructionExpanded ? "See less" : "See more"}
         </Text>
       </View>
     </ScrollView>
